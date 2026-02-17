@@ -2101,6 +2101,11 @@
             if (savedUsers) {
                 try {
                     systemUsers = JSON.parse(savedUsers);
+                    // Ensure admin account exists
+                    if (!systemUsers.some(u => u.username === 'admin')) {
+                        systemUsers.unshift(DEFAULT_ADMIN);
+                        localStorage.setItem('systemUsers', JSON.stringify(systemUsers));
+                    }
                 } catch (e) {
                     // If parsing fails, reset to default admin
                     systemUsers = [DEFAULT_ADMIN];
@@ -2111,6 +2116,8 @@
                 systemUsers = [DEFAULT_ADMIN];
                 localStorage.setItem('systemUsers', JSON.stringify(systemUsers));
             }
+
+            console.log('Auth System Initialized. Users:', systemUsers);
 
             const sessionUser = sessionStorage.getItem('currentUser');
             if (sessionUser) {
@@ -2126,10 +2133,12 @@
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
 
+            console.log('Login attempt:', { username, systemUsers });
+
             const user = systemUsers.find(u => u.username === username && u.password === password);
             
             if (user) {
-                currentLoggedInUser = { username: user.username, fullName: user.username, role: user.role };
+                currentLoggedInUser = { username: user.username, fullName: user.fullName, role: user.role };
                 sessionStorage.setItem('currentUser', JSON.stringify(currentLoggedInUser));
                 loadData();
                 addAuditLog('Logged in');
