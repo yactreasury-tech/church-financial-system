@@ -1,0 +1,23 @@
+{
+  "name": "Church Financial Management System",
+  "short_name": "Church Finance",
+  "start_url": "./church-financial-system.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "./assets/app-icon.png",
+      "sizes": "768x768",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
