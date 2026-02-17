@@ -2096,9 +2096,21 @@
         // ============ AUTHENTICATION SYSTEM ============
         
         function initializeAuthSystem() {
-            // Initialize with default admin account
-            systemUsers = [DEFAULT_ADMIN];
-            localStorage.setItem('systemUsers', JSON.stringify(systemUsers));
+            // Load existing users from localStorage, or initialize with default admin account
+            const savedUsers = localStorage.getItem('systemUsers');
+            if (savedUsers) {
+                try {
+                    systemUsers = JSON.parse(savedUsers);
+                } catch (e) {
+                    // If parsing fails, reset to default admin
+                    systemUsers = [DEFAULT_ADMIN];
+                    localStorage.setItem('systemUsers', JSON.stringify(systemUsers));
+                }
+            } else {
+                // First time - create with default admin account
+                systemUsers = [DEFAULT_ADMIN];
+                localStorage.setItem('systemUsers', JSON.stringify(systemUsers));
+            }
 
             const sessionUser = sessionStorage.getItem('currentUser');
             if (sessionUser) {
