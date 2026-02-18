@@ -2806,9 +2806,14 @@
             }
 
             try {
-                const fileContent = JSON.stringify(churchData, null, 2);
+                // Include both data and users in the sync
+                const dataToSync = {
+                    data: churchData,
+                    users: systemUsers
+                };
+                const fileContent = JSON.stringify(dataToSync, null, 2);
                 console.log('📝 File content size:', fileContent.length, 'bytes');
-                console.log('📝 File content preview:', fileContent.substring(0, 200));
+                console.log('📝 Including users:', systemUsers.length, 'user accounts');
                 
                 const boundary = '-------314159265358979323846';
                 const delimiter = "\r\n--" + boundary + "\r\n";
@@ -2939,7 +2944,18 @@
                     });
 
                     googleDriveFileId = sharedDriveFileId;
-                    churchData = normalizeChurchData(fileContent.result);
+                    
+                    // Handle both new format (with users) and old format (data only)
+                    if (fileContent.result.data && fileContent.result.users) {
+                        // New format with users
+                        churchData = normalizeChurchData(fileContent.result.data);
+                        systemUsers = fileContent.result.users || [];
+                        localStorage.setItem('systemUsers', JSON.stringify(systemUsers));
+                        console.log('✅ Loaded users from Google Drive:', systemUsers.length, 'accounts');
+                    } else {
+                        // Old format - just data
+                        churchData = normalizeChurchData(fileContent.result);
+                    }
 
                     try {
                         const fileMeta = await gapi.client.drive.files.get({
@@ -2983,7 +2999,17 @@
                         alt: 'media'
                     });
                     
-                    churchData = normalizeChurchData(fileContent.result);
+                    // Handle both new format (with users) and old format (data only)
+                    if (fileContent.result.data && fileContent.result.users) {
+                        // New format with users
+                        churchData = normalizeChurchData(fileContent.result.data);
+                        systemUsers = fileContent.result.users || [];
+                        localStorage.setItem('systemUsers', JSON.stringify(systemUsers));
+                        console.log('✅ Loaded users from Google Drive:', systemUsers.length, 'accounts');
+                    } else {
+                        // Old format - just data
+                        churchData = normalizeChurchData(fileContent.result);
+                    }
                     
                     // Reload the UI with cloud data
                     renderAllViews();
