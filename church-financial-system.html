@@ -2690,10 +2690,14 @@
             
             // Save to local storage
             localStorage.setItem('churchFinancialData', JSON.stringify(churchData));
+            console.log('💾 Data saved to localStorage');
             
             // Sync to Google Drive if enabled
             if (cloudSyncEnabled && currentUser) {
+                console.log('☁️ Triggering Google Drive sync...');
                 syncToGoogleDrive();
+            } else {
+                console.log('⚠️ Cloud sync not triggered. cloudSyncEnabled:', cloudSyncEnabled, 'currentUser:', currentUser);
             }
             
             if (!silent) {
@@ -2786,7 +2790,12 @@
 
         async function syncToGoogleDrive() {
             cloudRole = getCloudRole();
-            if (!cloudSyncEnabled || !currentUser) return;
+            console.log('🔄 syncToGoogleDrive called', { cloudSyncEnabled, currentUser, googleDriveFileId, sharedDriveFileId });
+            
+            if (!cloudSyncEnabled || !currentUser) {
+                console.warn('⚠️ Sync skipped: cloudSyncEnabled =', cloudSyncEnabled, ', currentUser =', currentUser);
+                return;
+            }
 
             if (sharedDriveFileId && sharedFileCanEdit === false) {
                 if (!sharedSyncReadOnlyWarnShown) {
@@ -2798,47 +2807,111 @@
 
             try {
                 const fileContent = JSON.stringify(churchData, null, 2);
+                console.log('📝 File content size:', fileContent.length, 'bytes');
+                console.log('📝 File content preview:', fileContent.substring(0, 200));
+                
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
                 
                 if (sharedDriveFileId) {
-                    await gapi.client.drive.files.update({
-                        fileId: sharedDriveFileId,
-                        supportsAllDrives: true,
-                        media: {
-                            mimeType: 'application/json',
-                            body: fileContent
-                        }
+                    console.log('🔄 Updating shared file:', sharedDriveFileId);
+                    
+                    const multipartRequestBody =
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        JSON.stringify({}) +
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        fileContent +
+                        close_delim;
+
+                    console.log('📤 Multipart body size:', multipartRequestBody.length, 'bytes');
+                    
+                    const request = gapi.client.request({
+                        'path': '/upload/drive/v3/files/' + sharedDriveFileId,
+                        'method': 'PATCH',
+                        'params': {'uploadType': 'multipart', 'supportsAllDrives': true},
+                        'headers': {
+                            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+                        },
+                        'body': multipartRequestBody
                     });
+                    
+                    const response = await request;
+                    console.log('✅ Shared file updated', response);
                     googleDriveFileId = sharedDriveFileId;
                 } else if (googleDriveFileId) {
                     // Update existing file
-                    await gapi.client.drive.files.update({
-                        fileId: googleDriveFileId,
-                        media: {
-                            mimeType: 'application/json',
-                            body: fileContent
-                        }
+                    console.log('🔄 Updating file:', googleDriveFileId);
+                    
+                    const multipartRequestBody =
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        JSON.stringify({}) +
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        fileContent +
+                        close_delim;
+
+                    console.log('📤 Multipart body size:', multipartRequestBody.length, 'bytes');
+                    
+                    const request = gapi.client.request({
+                        'path': '/upload/drive/v3/files/' + googleDriveFileId,
+                        'method': 'PATCH',
+                        'params': {'uploadType': 'multipart'},
+                        'headers': {
+                            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+                        },
+                        'body': multipartRequestBody
                     });
+                    
+                    const response = await request;
+                    console.log('✅ File updated', response);
                 } else {
                     // Create new file
-                    const response = await gapi.client.drive.files.create({
-                        resource: {
-                            name: FILE_NAME,
-                            mimeType: 'application/json'
+                    console.log('📁 Creating new Google Drive file:', FILE_NAME);
+                    
+                    const metadata = {
+                        'name': FILE_NAME,
+                        'mimeType': 'application/json'
+                    };
+                    
+                    const multipartRequestBody =
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        JSON.stringify(metadata) +
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' +
+                        fileContent +
+                        close_delim;
+
+                    console.log('📤 Multipart body size:', multipartRequestBody.length, 'bytes');
+                    
+                    const request = gapi.client.request({
+                        'path': '/upload/drive/v3/files',
+                        'method': 'POST',
+                        'params': {'uploadType': 'multipart', 'fields': 'id'},
+                        'headers': {
+                            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
                         },
-                        media: {
-                            mimeType: 'application/json',
-                            body: fileContent
-                        },
-                        fields: 'id'
+                        'body': multipartRequestBody
                     });
+                    
+                    const response = await request;
                     googleDriveFileId = response.result.id;
+                    console.log('✅ File created successfully! File ID:', googleDriveFileId, 'Response:', response);
                     // Save file ID to localStorage for future syncs
                     localStorage.setItem('googleDriveFileId', googleDriveFileId);
+                    alert(`File created in Google Drive!\n\nFile ID: ${googleDriveFileId}\n\nFile Name: ${FILE_NAME}\n\nYou can now find this file in your Google Drive.`);
                 }
                 
-                console.log('Synced to Google Drive');
+                console.log('✅ Synced to Google Drive successfully');
             } catch (error) {
-                console.error('Google Drive sync error:', error);
+                console.error('❌ Google Drive sync error:', error);
+                console.error('Error details:', JSON.stringify(error, null, 2));
+                console.error('Error message:', error.message);
+                console.error('Error code:', error.code);
                 if (sharedDriveFileId) {
                     const errorMessage = (error && error.result && error.result.error && error.result.error.message) || error.message || '';
                     const isPermissionError = /permission|insufficient|forbidden|not found|404|403|cannotShareAcrossDomains/i.test(errorMessage);
